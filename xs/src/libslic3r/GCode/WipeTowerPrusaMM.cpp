@@ -744,6 +744,13 @@ void WipeTowerPrusaMM::toolchange_Unload(
 			  .ram(xl + m_perimeter_width * 2, xr - m_perimeter_width * 2, y_step * 1.5f, 0,  1.75f * e, 4800)
 			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 5000);
 		break;
+	case FLEX:
+		// Reduce feedrate for flex to prevent bowden tube pressure build-up
+		writer.ram(xl + m_perimeter_width * 2, xr - m_perimeter_width,     y_step * 0.2f, 0,  1.75f * e, 2000)
+			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 2250)
+			  .ram(xl + m_perimeter_width * 2, xr - m_perimeter_width * 2, y_step * 1.5f, 0,  1.75f * e, 2400)
+			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 2500);
+		break;
 	case SCAFF:
 		writer.ram(xl + m_perimeter_width * 2, xr - m_perimeter_width,     y_step * 2.f,  0,  1.75f * e, 4000)
 			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 3.f,  0,  2.34f * e, 4600)
@@ -758,7 +765,8 @@ void WipeTowerPrusaMM::toolchange_Unload(
 	}
 
 	// Pull the filament end into a cooling tube.
-	writer.retract(15, 5000).retract(50, 5400).retract(15, 3000).retract(12, 2000);
+	// Added extra 50mm to be completely out of the splitter and be visible in the bowden tube
+	writer.retract(15, 5000).retract(100, 5400).retract(15, 3000).retract(12, 2000);
 
 	if (new_temperature != 0)
 		// Set the extruder temperature, but don't wait.
@@ -773,6 +781,15 @@ void WipeTowerPrusaMM::toolchange_Unload(
 	switch (current_material)
 	{
 	case PVA:
+		writer.cool(xl, xr, 3, -5, 1600)
+			  .cool(xl, xr, 5, -5, 2000)
+			  .cool(xl, xr, 5, -5, 2200)
+			  .cool(xl, xr, 5, -5, 2400)
+			  .cool(xl, xr, 5, -5, 2400)
+			  .cool(xl, xr, 5, -3, 2400);
+		break;
+	case FLEX:
+		// copy of PVA
 		writer.cool(xl, xr, 3, -5, 1600)
 			  .cool(xl, xr, 5, -5, 2000)
 			  .cool(xl, xr, 5, -5, 2200)
