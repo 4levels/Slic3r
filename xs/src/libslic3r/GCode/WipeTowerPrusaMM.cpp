@@ -851,8 +851,8 @@ void WipeTowerPrusaMM::toolchange_Load(
 		  .suppress_preview()
 		  // Accelerate the filament loading
 		  .load_move_x(xr, 20, 1400)
-		  // Fast loading phase
-		  .load_move_x(xl, 40, 3000)
+		  // Fast loading phase, added extra 50mm
+		  .load_move_x(xl, 90, 3000)
 		  // Slowing down
 		  .load_move_x(xr, 20, 1600)
 		  .load_move_x(xl, 10, 1000)
