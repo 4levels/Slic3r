@@ -778,39 +778,45 @@ void WipeTowerPrusaMM::toolchange_Unload(
 	// Horizontal cooling moves will be performed at the following Y coordinate:
 	writer.travel(xr, writer.y() + y_step * 0.8f, 7200)
 		  .suppress_preview();
+	
+	// increased extruder motion by factor 10
 	switch (current_material)
 	{
 	case PVA:
-		writer.cool(xl, xr, 3, -5, 1600)
-			  .cool(xl, xr, 5, -5, 2000)
-			  .cool(xl, xr, 5, -5, 2200)
-			  .cool(xl, xr, 5, -5, 2400)
-			  .cool(xl, xr, 5, -5, 2400)
-			  .cool(xl, xr, 5, -3, 2400);
+		writer.cool(xl, xr, 30, -50, 1600)
+			  .cool(xl, xr, 50, -50, 2000)
+			  .cool(xl, xr, 50, -50, 2200)
+			  .cool(xl, xr, 50, -50, 2400)
+			  .cool(xl, xr, 50, -50, 2400)
+			  .cool(xl, xr, 50, -30, 2400);
 		break;
 	case FLEX:
 		// copy of PVA
-		writer.cool(xl, xr, 3, -5, 1600)
-			  .cool(xl, xr, 5, -5, 2000)
-			  .cool(xl, xr, 5, -5, 2200)
-			  .cool(xl, xr, 5, -5, 2400)
-			  .cool(xl, xr, 5, -5, 2400)
-			  .cool(xl, xr, 5, -3, 2400);
+		writer.cool(xl, xr, 30, -50, 1600)
+			  .cool(xl, xr, 50, -50, 2000)
+			  .cool(xl, xr, 50, -50, 2200)
+			  .cool(xl, xr, 50, -50, 2400)
+			  .cool(xl, xr, 50, -50, 2400)
+			  .cool(xl, xr, 50, -30, 2400);
 		break;
 	case SCAFF:
-		writer.cool(xl, xr, 3, -5, 1600)
-			  .cool(xl, xr, 5, -5, 2000)
-			  .cool(xl, xr, 5, -5, 2200)
-			  .cool(xl, xr, 5, -5, 2200)
-			  .cool(xl, xr, 5, -3, 2400);
+		writer.cool(xl, xr, 30, -50, 1600)
+			  .cool(xl, xr, 50, -50, 2000)
+			  .cool(xl, xr, 50, -50, 2200)
+			  .cool(xl, xr, 50, -50, 2200)
+			  .cool(xl, xr, 50, -30, 2400);
 		break;
 	default:
-		writer.cool(xl, xr, 3, -5, 1600)
-			  .cool(xl, xr, 5, -5, 2000)
-			  .cool(xl, xr, 5, -5, 2400)
-			  .cool(xl, xr, 5, -3, 2400);
+		writer.cool(xl, xr, 30, -50, 1600)
+			  .cool(xl, xr, 50, -50, 2000)
+			  .cool(xl, xr, 50, -50, 2400)
+			  .cool(xl, xr, 50, -30, 2400);
 	}
-
+	
+	// set and wait for temperature
+	if (new_temperature != 0)
+		writer.set_extruder_temp(new_temperature, true);
+	
 	writer.resume_preview()
 		  .flush_planner_queue();
 }
