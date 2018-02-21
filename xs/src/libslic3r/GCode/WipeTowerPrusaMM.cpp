@@ -829,11 +829,7 @@ void WipeTowerPrusaMM::toolchange_Unload(
 			  .cool(xl, xr, 50, -50, 2400)
 			  .cool(xl, xr, 50, -30, 2400);
 	}
-	
-	// set and wait for temperature
-	if (new_temperature != 0)
-		writer.set_extruder_temp(new_temperature, true);
-	
+		
 	writer.resume_preview()
 		  .flush_planner_queue();
 }
