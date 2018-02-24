@@ -64,6 +64,8 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/Fill/FillConcentric.hpp
     ${LIBDIR}/libslic3r/Fill/FillHoneycomb.cpp
     ${LIBDIR}/libslic3r/Fill/FillHoneycomb.hpp
+    ${LIBDIR}/libslic3r/Fill/FillGyroid.cpp
+    ${LIBDIR}/libslic3r/Fill/FillGyroid.hpp
     ${LIBDIR}/libslic3r/Fill/FillPlanePath.cpp
     ${LIBDIR}/libslic3r/Fill/FillPlanePath.hpp
     ${LIBDIR}/libslic3r/Fill/FillRectilinear.cpp
@@ -173,6 +175,8 @@ add_library(libslic3r_gui STATIC
     ${LIBDIR}/slic3r/GUI/3DScene.hpp
     ${LIBDIR}/slic3r/GUI/GLShader.cpp
     ${LIBDIR}/slic3r/GUI/GLShader.hpp
+    ${LIBDIR}/slic3r/GUI/Preferences.cpp
+    ${LIBDIR}/slic3r/GUI/Preferences.hpp
     ${LIBDIR}/slic3r/GUI/Preset.cpp
     ${LIBDIR}/slic3r/GUI/Preset.hpp
     ${LIBDIR}/slic3r/GUI/PresetBundle.cpp
