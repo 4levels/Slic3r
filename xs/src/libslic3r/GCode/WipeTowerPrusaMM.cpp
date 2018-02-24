@@ -756,10 +756,10 @@ void WipeTowerPrusaMM::toolchange_Unload(
 		break;
 	case PVA:
 		// Used for the PrimaSelect PVA
-		writer.ram(xl + m_perimeter_width * 2, xr - m_perimeter_width,     y_step * 0.2f, 0,  1.75f * e, 4000)
-			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 4500)
-			  .ram(xl + m_perimeter_width * 2, xr - m_perimeter_width * 2, y_step * 1.5f, 0,  1.75f * e, 4800)
-			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 5000);
+		writer.ram(xl + m_perimeter_width * 2, xr - m_perimeter_width,     y_step * 0.2f, 0,  1.75f * e, 3000)
+			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 3500)
+			  .ram(xl + m_perimeter_width * 2, xr - m_perimeter_width * 2, y_step * 1.5f, 0,  1.75f * e, 3750)
+			  .ram(xr - m_perimeter_width,     xl + m_perimeter_width,     y_step * 1.5f, 0,  1.75f * e, 4000);
 		break;
 	case FLEX:
 		// Reduce feedrate for flex to prevent bowden tube pressure build-up
@@ -803,8 +803,6 @@ void WipeTowerPrusaMM::toolchange_Unload(
 		writer.cool(xl, xr, 30, -50, 1600)
 			  .cool(xl, xr, 50, -50, 2000)
 			  .cool(xl, xr, 50, -50, 2200)
-			  .cool(xl, xr, 50, -50, 2400)
-			  .cool(xl, xr, 50, -50, 2400)
 			  .cool(xl, xr, 50, -30, 2400);
 		break;
 	case FLEX:
@@ -812,8 +810,6 @@ void WipeTowerPrusaMM::toolchange_Unload(
 		writer.cool(xl, xr, 30, -50, 1600)
 			  .cool(xl, xr, 50, -50, 2000)
 			  .cool(xl, xr, 50, -50, 2200)
-			  .cool(xl, xr, 50, -50, 2400)
-			  .cool(xl, xr, 50, -50, 2400)
 			  .cool(xl, xr, 50, -30, 2400);
 		break;
 	case SCAFF:
@@ -843,7 +839,7 @@ void WipeTowerPrusaMM::toolchange_Change(
 	// Speed override for the material. Go slow for flex and soluble materials.
 	int speed_override;
 	switch (new_material) {
-	case PVA:   speed_override = (m_z_pos < 0.80f) ? 60 : 80; break;
+	case PVA:   speed_override = (m_z_pos < 0.80f) ? 50 : 60; break;
 	case SCAFF: speed_override = 35; break;
 	case FLEX:  speed_override = 35; break;
 	default:    speed_override = 100;
