@@ -783,7 +783,7 @@ void WipeTowerPrusaMM::toolchange_Unload(
 
 	// Pull the filament end into a cooling tube.
 	// Added extra 50mm to be completely out of the splitter and be visible in the bowden tube
-	writer.retract(15, 5000).retract(100, 5400).retract(15, 3000).retract(12, 2000);
+	writer.retract(15, 5000).retract(100, 2700).retract(15, 3000).retract(12, 2000);
 
 	if (new_temperature != 0)
 		// Set the extruder temperature, but don't wait.
@@ -868,7 +868,7 @@ void WipeTowerPrusaMM::toolchange_Load(
 		  // Accelerate the filament loading
 		  .load_move_x(xr, 20, 1400)
 		  // Fast loading phase, added extra 50mm
-		  .load_move_x(xl, 90, 3000)
+		  .load_move_x(xl, 90, 1500)
 		  // Slowing down
 		  .load_move_x(xr, 20, 1600)
 		  .load_move_x(xl, 10, 1000)
