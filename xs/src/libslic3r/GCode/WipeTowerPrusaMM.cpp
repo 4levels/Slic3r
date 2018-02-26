@@ -797,34 +797,35 @@ void WipeTowerPrusaMM::toolchange_Unload(
 		  .suppress_preview();
 	
 	// increased extruder motion by factor 10
-	switch (current_material)
-	{
-	case PVA:
-		writer.cool(xl, xr, 30, -50, 1600)
-			  .cool(xl, xr, 50, -50, 2000)
-			  .cool(xl, xr, 50, -50, 2200)
-			  .cool(xl, xr, 50, -30, 2400);
-		break;
-	case FLEX:
-		// copy of PVA
-		writer.cool(xl, xr, 30, -50, 1600)
-			  .cool(xl, xr, 50, -50, 2000)
-			  .cool(xl, xr, 50, -50, 2200)
-			  .cool(xl, xr, 50, -30, 2400);
-		break;
-	case SCAFF:
-		writer.cool(xl, xr, 30, -50, 1600)
-			  .cool(xl, xr, 50, -50, 2000)
-			  .cool(xl, xr, 50, -50, 2200)
-			  .cool(xl, xr, 50, -50, 2200)
-			  .cool(xl, xr, 50, -30, 2400);
-		break;
-	default:
-		writer.cool(xl, xr, 30, -50, 1600)
-			  .cool(xl, xr, 50, -50, 2000)
-			  .cool(xl, xr, 50, -50, 2400)
-			  .cool(xl, xr, 50, -30, 2400);
-	}
+	// remove cooling all together as filament is being fried in the nozzle during cooldown, causing blocking
+// 	switch (current_material)
+// 	{
+// 	case PVA:
+// 		writer.cool(xl, xr, 30, -50, 1600)
+// 			  .cool(xl, xr, 50, -50, 2000)
+// 			  .cool(xl, xr, 50, -50, 2200)
+// 			  .cool(xl, xr, 50, -30, 2400);
+// 		break;
+// 	case FLEX:
+// 		// copy of PVA
+// 		writer.cool(xl, xr, 30, -50, 1600)
+// 			  .cool(xl, xr, 50, -50, 2000)
+// 			  .cool(xl, xr, 50, -50, 2200)
+// 			  .cool(xl, xr, 50, -30, 2400);
+// 		break;
+// 	case SCAFF:
+// 		writer.cool(xl, xr, 30, -50, 1600)
+// 			  .cool(xl, xr, 50, -50, 2000)
+// 			  .cool(xl, xr, 50, -50, 2200)
+// 			  .cool(xl, xr, 50, -50, 2200)
+// 			  .cool(xl, xr, 50, -30, 2400);
+// 		break;
+// 	default:
+// 		writer.cool(xl, xr, 30, -50, 1600)
+// 			  .cool(xl, xr, 50, -50, 2000)
+// 			  .cool(xl, xr, 50, -50, 2400)
+// 			  .cool(xl, xr, 50, -30, 2400);
+// 	}
 		
 	writer.resume_preview()
 		  .flush_planner_queue();
