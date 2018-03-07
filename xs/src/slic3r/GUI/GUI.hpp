@@ -6,6 +6,7 @@
 #include "Config.hpp"
 
 class wxApp;
+class wxWindow;
 class wxFrame;
 class wxWindow;
 class wxMenuBar;
@@ -33,6 +34,9 @@ class TabIface;
 //! macro used to localization, return wxScopedCharBuffer
 //! With wxConvUTF8 explicitly specify that the source string is already in UTF-8 encoding
 #define _CHB(s) wxGetTranslation(wxString(s, wxConvUTF8)).utf8_str()
+
+// Minimal buffer length for translated string (char buf[MIN_BUF_LENGTH_FOR_L])
+#define MIN_BUF_LENGTH_FOR_L	128
 
 namespace GUI {
 
@@ -117,6 +121,8 @@ int combochecklist_get_flags(wxComboCtrl* comboCtrl);
 wxString	L_str(std::string str);
 // Return wxString from std::string in UTF8
 wxString	from_u8(std::string str);
+
+wxWindow *get_widget_by_id(int id);
 
 }
 }
