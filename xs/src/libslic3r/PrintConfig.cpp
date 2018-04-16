@@ -166,6 +166,22 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "cooling!";
     def->default_value = new ConfigOptionBools { true };
 
+    def = this->add("cooling_tube_retraction", coFloat);
+    def->label = L("Cooling tube position");
+    def->tooltip = L("Distance of the center-point of the cooling tube from the extruder tip ");
+    def->sidetext = L("mm");
+    def->cli = "cooling_tube_retraction=f";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloat(91.5f);
+
+    def = this->add("cooling_tube_length", coFloat);
+    def->label = L("Cooling tube length");
+    def->tooltip = L("Length of the cooling tube to limit space for cooling moves inside it ");
+    def->sidetext = L("mm");
+    def->cli = "cooling_tube_length=f";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloat(5.f);
+
     def = this->add("default_acceleration", coFloat);
     def->label = L("Default");
     def->tooltip = L("This is the acceleration your printer will be reset to after "
@@ -175,6 +191,18 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "default-acceleration=f";
     def->min = 0;
     def->default_value = new ConfigOptionFloat(0);
+
+    def = this->add("default_filament_profile", coStrings);
+    def->label = L("Default filament profile");
+    def->tooltip = L("Default filament profile associated with the current printer profile. "
+                   "On selection of the current printer profile, this filament profile will be activated.");
+    def->default_value = new ConfigOptionStrings();
+
+    def = this->add("default_print_profile", coString);
+    def->label = L("Default print profile");
+    def->tooltip = L("Default print profile associated with the current printer profile. "
+                   "On selection of the current printer profile, this print profile will be activated.");
+    def->default_value = new ConfigOptionString();
 
     def = this->add("disable_fan_first_layers", coInts);
     def->label = L("Disable fan for the first");
@@ -406,7 +434,7 @@ PrintConfigDef::PrintConfigDef()
     def->tooltip = L("This is only used in the Slic3r interface as a visual help.");
     def->cli = "filament-color=s@";
     def->gui_type = "color";
-    def->default_value = new ConfigOptionStrings { "#29b2b2" };
+    def->default_value = new ConfigOptionStrings { "#29B2B2" };
 
     def = this->add("filament_notes", coStrings);
     def->label = L("Filament notes");
@@ -426,6 +454,49 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "filament-max-volumetric-speed=f@";
     def->min = 0;
     def->default_value = new ConfigOptionFloats { 0. };
+
+    def = this->add("filament_loading_speed", coFloats);
+    def->label = L("Loading speed");
+    def->tooltip = L("Speed used for loading the filament on the wipe tower. ");
+    def->sidetext = L("mm/s");
+    def->cli = "filament-loading-speed=f@";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloats { 28. };
+
+    def = this->add("filament_unloading_speed", coFloats);
+    def->label = L("Unloading speed");
+    def->tooltip = L("Speed used for unloading the filament on the wipe tower (does not affect "
+                      " initial part of unloading just after ramming). ");
+    def->sidetext = L("mm/s");
+    def->cli = "filament-unloading-speed=f@";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloats { 90. };
+
+    def = this->add("filament_toolchange_delay", coFloats);
+    def->label = L("Delay after unloading");
+    def->tooltip = L("Time to wait after the filament is unloaded. "
+                   "May help to get reliable toolchanges with flexible materials "
+                   "that may need more time to shrink to original dimensions. ");
+    def->sidetext = L("s");
+    def->cli = "filament-toolchange-delay=f@";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloats { 0. };
+    
+    def = this->add("filament_cooling_time", coFloats);
+    def->label = L("Cooling time");
+    def->tooltip = L("The filament is slowly moved back and forth after retraction into the cooling tube "
+                   "for this amount of time.");
+    def->cli = "filament_cooling_time=i@";
+    def->sidetext = L("s");
+    def->min = 0;
+    def->default_value = new ConfigOptionFloats { 14.f };
+
+    def = this->add("filament_ramming_parameters", coStrings);
+    def->label = L("Ramming parameters");
+    def->tooltip = L("This string is edited by RammingDialog and contains ramming specific parameters ");
+    def->cli = "filament-ramming-parameters=s@";
+    def->default_value = new ConfigOptionStrings { "120 100 6.6 6.8 7.2 7.6 7.9 8.2 8.7 9.4 9.9 10.0|"
+	   " 0.05 6.6 0.45 6.8 0.95 7.8 1.45 8.3 1.95 9.7 2.45 10 2.95 7.6 3.45 7.6 3.95 7.6 4.45 7.6 4.95 7.6" };
 
     def = this->add("filament_diameter", coFloats);
     def->label = L("Diameter");
@@ -753,6 +824,13 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->default_value = new ConfigOptionFloat(80);
 
+    def = this->add("inherits", coString);
+    def->label = L("Inherits profile");
+    def->tooltip = L("Name of the profile, from which this profile inherits.");
+    def->full_width = true;
+    def->height = 50;
+    def->default_value = new ConfigOptionString("");
+
     def = this->add("interface_shells", coBool);
     def->label = L("Interface shells");
     def->tooltip = L("Force the generation of solid shells between adjacent materials/volumes. "
@@ -802,6 +880,13 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "max-layer-height=f@";
     def->min = 0;
     def->default_value = new ConfigOptionFloats { 0. };
+
+    def = this->add("max_print_height", coFloat);
+    def->label = L("Max print height");
+    def->tooltip = L("Set this to the maximum height that can be reached by your extruder while printing.");
+    def->sidetext = L("mm");
+    def->cli = "max-print-height=f";
+    def->default_value = new ConfigOptionFloat(200.0);
 
     def = this->add("max_print_speed", coFloat);
     def->label = L("Max print speed");
@@ -951,6 +1036,15 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "overhangs!";
     def->default_value = new ConfigOptionBool(true);
 
+    def = this->add("parking_pos_retraction", coFloat);
+    def->label = L("Filament parking position");
+    def->tooltip = L("Distance of the extruder tip from the position where the filament is parked "
+                      "when unloaded. This should match the value in printer firmware. ");
+    def->sidetext = L("mm");
+    def->cli = "parking_pos_retraction=f";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloat(92.f);
+
     def = this->add("perimeter_acceleration", coFloat);
     def->label = L("Perimeters");
     def->tooltip = L("This is the acceleration your printer will use for perimeters. "
@@ -1015,7 +1109,12 @@ PrintConfigDef::PrintConfigDef()
     def->multiline = true;
     def->full_width = true;
 	def->height = 60;
-	def->default_value = new ConfigOptionStrings{ "" };
+	def->default_value = new ConfigOptionStrings();
+
+    def = this->add("printer_model", coString);
+    def->label = L("Printer type");
+    def->tooltip = L("Type of the printer.");
+    def->default_value = new ConfigOptionString();
 
     def = this->add("printer_notes", coString);
     def->label = L("Printer notes");
@@ -1025,6 +1124,16 @@ PrintConfigDef::PrintConfigDef()
     def->full_width = true;
     def->height = 130;
     def->default_value = new ConfigOptionString("");
+
+    def = this->add("printer_vendor", coString);
+    def->label = L("Printer vendor");
+    def->tooltip = L("Name of the printer vendor.");
+    def->default_value = new ConfigOptionString();
+
+    def = this->add("printer_variant", coString);
+    def->label = L("Printer variant");
+    def->tooltip = L("Name of the printer variant. For example, the printer variants may be differentiated by a nozzle diameter.");
+    def->default_value = new ConfigOptionString();
 
     def = this->add("print_settings_id", coString);
     def->default_value = new ConfigOptionString("");
@@ -1520,12 +1629,10 @@ PrintConfigDef::PrintConfigDef()
     def->enum_values.push_back("rectilinear");
     def->enum_values.push_back("rectilinear-grid");
     def->enum_values.push_back("honeycomb");
-    def->enum_values.push_back("pillars");
     def->enum_labels.push_back("rectilinear");
     def->enum_labels.push_back("rectilinear grid");
     def->enum_labels.push_back("honeycomb");
-    def->enum_labels.push_back("pillars");
-    def->default_value = new ConfigOptionEnum<SupportMaterialPattern>(smpPillars);
+    def->default_value = new ConfigOptionEnum<SupportMaterialPattern>(smpRectilinear);
 
     def = this->add("support_material_spacing", coFloat);
     def->label = L("Pattern spacing");
@@ -1705,6 +1812,25 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "wipe-tower!";
     def->default_value = new ConfigOptionBool(false);
 
+    def = this->add("wiping_volumes_extruders", coFloats);
+    def->label = L("Purging volumes - load/unload volumes");
+    def->tooltip = L("This vector saves required volumes to change from/to each tool used on the "
+                     "wipe tower. These values are used to simplify creation of the full purging "
+                     "volumes below. ");
+    def->cli = "wiping-volumes-extruders=f@";
+    def->default_value = new ConfigOptionFloats { 70.f, 70.f, 70.f, 70.f, 70.f, 70.f, 70.f, 70.f, 70.f, 70.f  };
+
+    def = this->add("wiping_volumes_matrix", coFloats);
+    def->label = L("Purging volumes - matrix");
+    def->tooltip = L("This matrix describes volumes (in cubic milimetres) required to purge the"
+                     " new filament on the wipe tower for any given pair of tools. ");
+    def->cli = "wiping-volumes-matrix=f@";
+    def->default_value = new ConfigOptionFloats {   0.f, 140.f, 140.f, 140.f, 140.f,
+                                                  140.f,   0.f, 140.f, 140.f, 140.f,
+                                                  140.f, 140.f,   0.f, 140.f, 140.f,
+                                                  140.f, 140.f, 140.f,   0.f, 140.f,
+                                                  140.f, 140.f, 140.f, 140.f,   0.f };
+
     def = this->add("wipe_tower_x", coFloat);
     def->label = L("Position X");
     def->tooltip = L("X coordinate of the left front corner of a wipe tower");
@@ -1726,14 +1852,19 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "wipe-tower-width=f";
     def->default_value = new ConfigOptionFloat(60.);
 
-    def = this->add("wipe_tower_per_color_wipe", coFloat);
-    def->label = L("Per color change depth");
-    def->tooltip = L("Depth of a wipe color per color change. For N colors, there will be "
-                   "maximum (N-1) tool switches performed, therefore the total depth "
-                   "of the wipe tower will be (N-1) times this value.");
+    def = this->add("wipe_tower_rotation_angle", coFloat);
+    def->label = L("Wipe tower rotation angle");
+    def->tooltip = L("Wipe tower rotation angle with respect to x-axis ");
+    def->sidetext = L("degrees");
+    def->cli = "wipe-tower-rotation-angle=f";
+    def->default_value = new ConfigOptionFloat(0.);
+    
+    def = this->add("wipe_tower_bridging", coFloat);
+    def->label = L("Maximal bridging distance");
+    def->tooltip = L("Maximal distance between supports on sparse infill sections. ");
     def->sidetext = L("mm");
-    def->cli = "wipe-tower-per-color-wipe=f";
-    def->default_value = new ConfigOptionFloat(15.);
+    def->cli = "wipe-tower-bridging=f";
+    def->default_value = new ConfigOptionFloat(10.);
 
     def = this->add("xy_size_compensation", coFloat);
     def->label = L("XY Size Compensation");
@@ -1797,6 +1928,9 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
             values is a dirty hack and will need to be removed sometime in the future, but it
             will avoid lots of complaints for now. */
         value = "0";
+    } else if (opt_key == "support_material_pattern" && value == "pillars") {
+        // Slic3r PE does not support the pillars. They never worked well.
+        value = "rectilinear";
     } else if (opt_key == "support_material_threshold" && value == "0") {
         // 0 used to be automatic threshold, but we introduced percent values so let's
         // transform it into the default value
@@ -1810,8 +1944,9 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
         "standby_temperature", "scale", "rotate", "duplicate", "duplicate_grid",
         "start_perimeters_at_concave_points", "start_perimeters_at_non_overhang", "randomize_start", 
         "seal_position", "vibration_limit", "bed_size", "octoprint_host",
-        "print_center", "g0", "threads", "pressure_advance" 
+        "print_center", "g0", "threads", "pressure_advance", "wipe_tower_per_color_wipe"
     };
+
     if (ignore.find(opt_key) != ignore.end()) {
         opt_key = "";
         return;

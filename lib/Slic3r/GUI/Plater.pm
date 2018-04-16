@@ -8,7 +8,6 @@ use utf8;
 use File::Basename qw(basename dirname);
 use List::Util qw(sum first max);
 use Slic3r::Geometry qw(X Y Z scale unscale deg2rad rad2deg);
-use LWP::UserAgent;
 use threads::shared qw(shared_clone);
 use Wx qw(:button :colour :cursor :dialog :filedialog :keycode :icon :font :id :listctrl :misc 
     :panel :sizer :toolbar :window wxTheApp :notebook :combobox wxNullBitmap);
@@ -53,8 +52,8 @@ sub new {
     $self->{config} = Slic3r::Config::new_from_defaults_keys([qw(
         bed_shape complete_objects extruder_clearance_radius skirts skirt_distance brim_width variable_layer_height
         serial_port serial_speed octoprint_host octoprint_apikey octoprint_cafile
-        nozzle_diameter single_extruder_multi_material 
-        wipe_tower wipe_tower_x wipe_tower_y wipe_tower_width wipe_tower_per_color_wipe extruder_colour filament_colour
+        nozzle_diameter single_extruder_multi_material wipe_tower wipe_tower_x wipe_tower_y wipe_tower_width
+	wipe_tower_rotation_angle extruder_colour filament_colour max_print_height
     )]);
     # C++ Slic3r::Model with Perl extensions in Slic3r/Model.pm
     $self->{model} = Slic3r::Model->new;
@@ -98,6 +97,15 @@ sub new {
         $self->update;
     };
     
+    # callback to enable/disable action buttons
+    my $enable_action_buttons = sub {
+        my ($enable) = @_;
+        $self->{btn_export_gcode}->Enable($enable);
+        $self->{btn_reslice}->Enable($enable);
+        $self->{btn_print}->Enable($enable);
+        $self->{btn_send_gcode}->Enable($enable);
+    };
+    
     # Initialize 3D plater
     if ($Slic3r::GUI::have_OpenGL) {
         $self->{canvas3D} = Slic3r::GUI::Plater::3D->new($self->{preview_notebook}, $self->{objects}, $self->{model}, $self->{print}, $self->{config});
@@ -113,6 +121,8 @@ sub new {
         $self->{canvas3D}->set_on_decrease_objects(sub { $self->decrease() });
         $self->{canvas3D}->set_on_remove_object(sub { $self->remove() });
         $self->{canvas3D}->set_on_instances_moved($on_instances_moved);
+        $self->{canvas3D}->set_on_enable_action_buttons($enable_action_buttons);
+        $self->{canvas3D}->use_plain_shader(1);
         $self->{canvas3D}->set_on_wipe_tower_moved(sub {
             my ($new_pos_3f) = @_;
             my $cfg = Slic3r::Config->new;
@@ -389,9 +399,12 @@ sub new {
                     });
                 });
                 $presets->Add($text, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxRIGHT, 4);
-                $presets->Add($choice, 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxBOTTOM, 0);
+                $presets->Add($choice, 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxBOTTOM, 1);
             }
         }
+
+        my $frequently_changed_parameters_sizer = Wx::BoxSizer->new(wxHORIZONTAL);
+        Slic3r::GUI::add_frequently_changed_parameters($self, $frequently_changed_parameters_sizer, $presets);
         
         my $object_info_sizer;
         {
@@ -473,14 +486,15 @@ sub new {
         
         my $right_sizer = Wx::BoxSizer->new(wxVERTICAL);
         $right_sizer->Add($presets, 0, wxEXPAND | wxTOP, 10) if defined $presets;
+        $right_sizer->Add($frequently_changed_parameters_sizer, 0, wxEXPAND | wxTOP, 10) if defined $frequently_changed_parameters_sizer;
         $right_sizer->Add($buttons_sizer, 0, wxEXPAND | wxBOTTOM, 5);
         $right_sizer->Add($self->{list}, 1, wxEXPAND, 5);
         $right_sizer->Add($object_info_sizer, 0, wxEXPAND, 0);
         $right_sizer->Add($print_info_sizer, 0, wxEXPAND, 0);
         # Callback for showing / hiding the print info box.
         $self->{"print_info_box_show"} = sub {
-            if ($right_sizer->IsShown(4) != $_[0]) { 
-                $right_sizer->Show(4, $_[0]); 
+            if ($right_sizer->IsShown(5) != $_[0]) { 
+                $right_sizer->Show(5, $_[0]); 
                 $self->Layout
             }
         };
@@ -722,8 +736,14 @@ sub load_model_objects {
         {
             # if the object is too large (more than 5 times the bed), scale it down
             my $size = $o->bounding_box->size;
-            my $ratio = max(@$size[X,Y]) / unscale(max(@$bed_size[X,Y]));
-            if ($ratio > 5) {
+            my $ratio = max($size->x / unscale($bed_size->x), $size->y / unscale($bed_size->y));
+            if ($ratio > 10000) {
+                # the size of the object is too big -> this could lead to overflow when moving to clipper coordinates,
+                # so scale down the mesh
+                $o->scale_xyz(Slic3r::Pointf3->new(1/$ratio, 1/$ratio, 1/$ratio));
+                $scaled_down = 1;
+            }
+            elsif ($ratio > 5) {
                 $_->set_scaling_factor(1/$ratio) for @{$o->instances};
                 $scaled_down = 1;
             }
@@ -1328,6 +1348,9 @@ sub export_gcode {
     } else {
         my $default_output_file = eval { $self->{print}->output_filepath($main::opt{output} // '') };
         Slic3r::GUI::catch_error($self) and return;
+        # If possible, remove accents from accented latin characters.
+        # This function is useful for generating file names to be processed by legacy firmwares.
+        $default_output_file = Slic3r::GUI::fold_utf8_to_ascii($default_output_file);
         my $dlg = Wx::FileDialog->new($self, L('Save G-code file as:'), 
             wxTheApp->{app_config}->get_last_output_dir(dirname($default_output_file)),
             basename($default_output_file), &Slic3r::GUI::FILE_WILDCARDS->{gcode}, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -1462,7 +1485,11 @@ sub on_export_completed {
     # Send $self->{send_gcode_file} to OctoPrint.
     if ($send_gcode) {
         my $op = Slic3r::OctoPrint->new($self->{config});
-        $op->send_gcode($self->GetId(), $PROGRESS_BAR_EVENT, $ERROR_EVENT, $self->{send_gcode_file});
+        if ($op->send_gcode($self->{send_gcode_file})) {
+            $self->statusbar->SetStatusText(L("OctoPrint upload finished."));
+        } else {
+            $self->statusbar->SetStatusText("");
+        }
     }
 
     $self->{print_file} = undef;
@@ -1552,7 +1579,7 @@ sub export_amf {
     return if !@{$self->{objects}};
     # Ask user for a file name to write into.
     my $output_file = $self->_get_export_file('AMF') or return;
-    my $res = $self->{model}->store_amf($output_file, $self->{print});
+    my $res = $self->{model}->store_amf($output_file, $self->{print}, $self->{export_option});
     if ($res)
     {
         $self->statusbar->SetStatusText(L("AMF file exported to ").$output_file);
@@ -1568,7 +1595,7 @@ sub export_3mf {
     return if !@{$self->{objects}};
     # Ask user for a file name to write into.
     my $output_file = $self->_get_export_file('3MF') or return;
-    my $res = $self->{model}->store_3mf($output_file, $self->{print});
+    my $res = $self->{model}->store_3mf($output_file, $self->{print}, $self->{export_option});
     if ($res)
     {
         $self->statusbar->SetStatusText(L("3MF file exported to ").$output_file);
@@ -1610,11 +1637,13 @@ sub _get_export_file {
     $output_file =~ s/\.[gG][cC][oO][dD][eE]$/$suffix/;
     my $dlg = Wx::FileDialog->new($self, L("Save ").$format.L(" file as:"), dirname($output_file),
         basename($output_file), &Slic3r::GUI::FILE_WILDCARDS->{$wildcard}, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    Slic3r::GUI::add_export_option($dlg, $format);
     if ($dlg->ShowModal != wxID_OK) {
         $dlg->Destroy;
         return undef;
     }
     $output_file = $dlg->GetPath;
+    $self->{export_option} = Slic3r::GUI::get_export_option($dlg);
     $dlg->Destroy;
     return $output_file;
 }
@@ -1737,6 +1766,8 @@ sub on_config_change {
             $update_scheduled = 1;
             my $extruder_colors = $config->get('extruder_colour');
             $self->{preview3D}->set_number_extruders(scalar(@{$extruder_colors}));
+        } elsif ($opt_key eq 'max_print_height') {
+            $update_scheduled = 1;
         }
     }
 
@@ -1888,7 +1919,8 @@ sub object_list_changed {
     }
 
     my $export_in_progress = $self->{export_gcode_output_file} || $self->{send_gcode_file};
-    my $method = ($have_objects && ! $export_in_progress) ? 'Enable' : 'Disable';
+    my $model_fits = $self->{model}->fits_print_volume($self->{config});
+    my $method = ($have_objects && ! $export_in_progress && $model_fits) ? 'Enable' : 'Disable';
     $self->{"btn_$_"}->$method
         for grep $self->{"btn_$_"}, qw(reslice export_gcode print send_gcode);
 }
@@ -1934,6 +1966,7 @@ sub selection_changed {
                     $self->{object_info_manifold_warning_icon}->SetToolTipString($message);
                 } else {
                     $self->{object_info_manifold}->SetLabel(L("Yes"));
+                    $self->{object_info_manifold_warning_icon}->Hide;
                 }
             } else {
                 $self->{object_info_facets}->SetLabel($object->facets);

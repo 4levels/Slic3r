@@ -54,6 +54,7 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/ExtrusionEntityCollection.hpp
     ${LIBDIR}/libslic3r/ExtrusionSimulator.cpp
     ${LIBDIR}/libslic3r/ExtrusionSimulator.hpp
+    ${LIBDIR}/libslic3r/FileParserError.hpp
     ${LIBDIR}/libslic3r/Fill/Fill.cpp
     ${LIBDIR}/libslic3r/Fill/Fill.hpp
     ${LIBDIR}/libslic3r/Fill/Fill3DHoneycomb.cpp
@@ -171,6 +172,8 @@ add_library(libslic3r STATIC
 add_library(libslic3r_gui STATIC
     ${LIBDIR}/slic3r/GUI/AppConfig.cpp
     ${LIBDIR}/slic3r/GUI/AppConfig.hpp
+    ${LIBDIR}/slic3r/GUI/BitmapCache.cpp
+    ${LIBDIR}/slic3r/GUI/BitmapCache.hpp
     ${LIBDIR}/slic3r/GUI/3DScene.cpp
     ${LIBDIR}/slic3r/GUI/3DScene.hpp
     ${LIBDIR}/slic3r/GUI/GLShader.cpp
@@ -199,6 +202,18 @@ add_library(libslic3r_gui STATIC
     ${LIBDIR}/slic3r/GUI/2DBed.hpp
     ${LIBDIR}/slic3r/GUI/wxExtensions.cpp
     ${LIBDIR}/slic3r/GUI/wxExtensions.hpp
+    ${LIBDIR}/slic3r/GUI/WipeTowerDialog.cpp
+    ${LIBDIR}/slic3r/GUI/WipeTowerDialog.hpp
+    ${LIBDIR}/slic3r/GUI/RammingChart.cpp
+    ${LIBDIR}/slic3r/GUI/RammingChart.hpp
+    ${LIBDIR}/slic3r/GUI/BonjourDialog.cpp
+    ${LIBDIR}/slic3r/GUI/BonjourDialog.hpp
+    ${LIBDIR}/slic3r/Config/Snapshot.cpp
+    ${LIBDIR}/slic3r/Config/Snapshot.hpp
+    ${LIBDIR}/slic3r/Config/Version.cpp
+    ${LIBDIR}/slic3r/Config/Version.hpp    
+    ${LIBDIR}/slic3r/Utils/ASCIIFolding.cpp
+    ${LIBDIR}/slic3r/Utils/ASCIIFolding.hpp
     ${LIBDIR}/slic3r/Utils/Http.cpp
     ${LIBDIR}/slic3r/Utils/Http.hpp
     ${LIBDIR}/slic3r/Utils/OctoPrint.cpp
@@ -293,6 +308,11 @@ add_library(Shiny STATIC
     ${LIBDIR}/Shiny/ShinyVersion.h
     ${LIBDIR}/Shiny/ShinyZone.c
     ${LIBDIR}/Shiny/ShinyZone.h
+)
+
+add_library(semver STATIC
+    ${LIBDIR}/semver/semver.h
+    ${LIBDIR}/semver/semver.c
 )
 
 # Generate the Slic3r Perl module (XS) typemap file.
@@ -626,15 +646,19 @@ elseif (NOT MSVC)
 endif ()
 
 if (MSVC)
-    # Here we associate some additional properties with the MSVC projects to enable compilation and debugging out of the box.
-    # It seems a props file needs to be copied to the same dir as the proj file, otherwise MSVC doesn't load it up.
-    # For copying, the configure_file() function seems to work much better than the file() function.
-    configure_file("${PROJECT_SOURCE_DIR}/cmake/msvc/xs.wperl64d.props" ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
-    set_target_properties(XS PROPERTIES VS_USER_PROPS "xs.wperl64d.props")
-    configure_file("${PROJECT_SOURCE_DIR}/cmake/msvc/slic3r.wperl64d.props" ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
-    set_target_properties(slic3r PROPERTIES VS_USER_PROPS "slic3r.wperl64d.props")
-endif ()
+    # Here we associate some additional properties with the MSVC project to enable compilation and debugging out of the box.
+    set_target_properties(XS PROPERTIES VS_USER_PROPS "${PROJECT_SOURCE_DIR}/cmake/msvc/xs.wperl64d.props")
+endif()
 
+# l10n
+set(L10N_DIR "${PROJECT_SOURCE_DIR}/resources/localization")
+add_custom_target(pot
+    COMMAND xgettext --keyword=L --from-code=UTF-8 --debug
+        -f "${L10N_DIR}/list.txt"
+        -o "${L10N_DIR}/Slic3rPE.pot"
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Generate pot file from strings in the source tree"
+)
 
 # Installation
 install(TARGETS XS DESTINATION ${PERL_VENDORARCH}/auto/Slic3r/XS)

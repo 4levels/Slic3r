@@ -34,7 +34,7 @@ void BedShapeDialog::build_dialog(ConfigOptionPoints* default_pt)
 
 void BedShapePanel::build_panel(ConfigOptionPoints* default_pt)
 {
-//	on_change(nullptr);
+//  on_change(nullptr);
 
 	auto box = new wxStaticBox(this, wxID_ANY, _(L("Shape")));
 	auto sbsizer = new wxStaticBoxSizer(box, wxVERTICAL);
@@ -183,7 +183,8 @@ void BedShapePanel::set_shape(ConfigOptionPoints* points)
 			vertex_distances.push_back(distance);
 			avg_dist += distance;
 		}
-			
+
+		avg_dist /= vertex_distances.size();
 		bool defined_value = true;
 		for (auto el: vertex_distances)
 		{

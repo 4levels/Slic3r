@@ -2,8 +2,8 @@
 #define slic3r_OctoPrint_hpp_
 
 #include <string>
+#include <wx/string.h>
 
-// #include "Http.hpp"    // XXX: ?
 
 namespace Slic3r {
 
@@ -16,9 +16,8 @@ class OctoPrint
 public:
 	OctoPrint(DynamicPrintConfig *config);
 
-	std::string test() const;
-	// XXX: style
-	void send_gcode(int windowId, int completeEvt, int errorEvt, const std::string &filename, bool print = false) const;
+	bool test(wxString &curl_msg) const;
+	bool send_gcode(const std::string &filename, bool print = false) const;
 private:
 	std::string host;
 	std::string apikey;
@@ -26,7 +25,7 @@ private:
 
 	void set_auth(Http &http) const;
 	std::string make_url(const std::string &path) const;
-	static std::string format_error(std::string error, unsigned status);
+	static wxString format_error(std::string error, unsigned status);
 };
 
 

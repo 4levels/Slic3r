@@ -1,10 +1,11 @@
 #include "OctoPrint.hpp"
 
-#include <iostream>
+#include <algorithm>
 #include <boost/format.hpp>
 
 #include <wx/frame.h>
 #include <wx/event.h>
+#include <wx/progdlg.h>
 
 #include "libslic3r/PrintConfig.hpp"
 #include "slic3r/GUI/GUI.hpp"
@@ -20,47 +21,72 @@ OctoPrint::OctoPrint(DynamicPrintConfig *config) :
 	cafile(config->opt_string("octoprint_cafile"))
 {}
 
-std::string  OctoPrint::test() const
+bool OctoPrint::test(wxString &msg) const
 {
 	// Since the request is performed synchronously here,
-	// it is ok to refer to `res` from within the closure
-	std::string res;
+	// it is ok to refer to `msg` from within the closure
 
-	auto http = Http::get(std::move(make_url("api/version")));
+	bool res = true;
+
+	auto url = std::move(make_url("api/version"));
+	auto http = Http::get(std::move(url));
 	set_auth(http);
 	http.on_error([&](std::string, std::string error, unsigned status) {
-			res = format_error(error, status);
+			res = false;
+			msg = format_error(error, status);
 		})
 		.perform_sync();
 
 	return res;
 }
 
-void OctoPrint::send_gcode(int windowId, int completeEvt, int errorEvt, const std::string &filename, bool print) const
+bool OctoPrint::send_gcode(const std::string &filename, bool print) const
 {
+	enum { PROGRESS_RANGE = 1000 };
+
+	const auto errortitle = _(L("Error while uploading to the OctoPrint server"));
+
+	wxProgressDialog progress_dialog(
+		_(L("OctoPrint upload")),
+		_(L("Sending G-code file to the OctoPrint server...")),
+		PROGRESS_RANGE, nullptr, wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
+	progress_dialog.Pulse();
+
+	wxString test_msg;
+	if (!test(test_msg)) {
+		auto errormsg = wxString::Format("%s: %s", errortitle, test_msg);
+		GUI::show_error(&progress_dialog, std::move(errormsg));
+		return false;
+	}
+
+	bool res = true;
+
 	auto http = Http::post(std::move(make_url("api/files/local")));
 	set_auth(http);
 	http.form_add("print", print ? "true" : "false")
 		.form_add_file("file", filename)
-		.on_complete([=](std::string body, unsigned status) {
-			wxWindow *window = GUI::get_widget_by_id(windowId);
-			wxCommandEvent* evt = new wxCommandEvent(completeEvt);
-			evt->SetString("G-code file successfully uploaded to the OctoPrint server");
-			evt->SetInt(100);
-			wxQueueEvent(window, evt);
+		.on_complete([&](std::string body, unsigned status) {
+			progress_dialog.Update(PROGRESS_RANGE);
 		})
-		.on_error([=](std::string body, std::string error, unsigned status) {
-			wxWindow *window = GUI::get_widget_by_id(windowId);
-
-			wxCommandEvent* evt_complete = new wxCommandEvent(completeEvt);
-			evt_complete->SetInt(100);
-			wxQueueEvent(window, evt_complete);
-
-			wxCommandEvent* evt_error = new wxCommandEvent(errorEvt);
-			evt_error->SetString(wxString::Format("Error while uploading to the OctoPrint server: %s", format_error(error, status)));
-			wxQueueEvent(window, evt_error);
+		.on_error([&](std::string body, std::string error, unsigned status) {
+			auto errormsg = wxString::Format("%s: %s", errortitle, format_error(error, status));
+			GUI::show_error(&progress_dialog, std::move(errormsg));
+			res = false;
 		})
-		.perform();
+		.on_progress([&](Http::Progress progress, bool &cancel) {
+			if (cancel) {
+				// Upload was canceled
+				res = false;
+			} else if (progress.ultotal > 0) {
+				int value = PROGRESS_RANGE * progress.ulnow / progress.ultotal;
+				cancel = !progress_dialog.Update(std::min(value, PROGRESS_RANGE - 1));    // Cap the value to prevent premature dialog closing
+			} else {
+				cancel = !progress_dialog.Pulse();
+			}
+		})
+		.perform_sync();
+
+	return res;
 }
 
 void OctoPrint::set_auth(Http &http) const
@@ -85,19 +111,15 @@ std::string OctoPrint::make_url(const std::string &path) const
 	}
 }
 
-std::string OctoPrint::format_error(std::string error, unsigned status)
+wxString OctoPrint::format_error(std::string error, unsigned status)
 {
+	const wxString wxerror = error;
+
 	if (status != 0) {
-		std::string res{"HTTP "};
-		res.append(std::to_string(status));
-
-		if (status == 401) {
-			res.append(": Invalid API key");
-		}
-
-		return std::move(res);
+		return wxString::Format("HTTP %u: %s", status,
+			(status == 401 ? _(L("Invalid API key")) : wxerror));
 	} else {
-		return std::move(error);
+		return std::move(wxerror);
 	}
 }
 

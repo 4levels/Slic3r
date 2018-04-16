@@ -16,6 +16,8 @@
 
 namespace Slic3r {
 
+    unsigned int Model::s_auto_extruder_id = 1;
+
 Model::Model(const Model &other)
 {
     // copy materials
@@ -222,11 +224,19 @@ bool Model::add_default_instances()
 }
 
 // this returns the bounding box of the *transformed* instances
-BoundingBoxf3 Model::bounding_box()
+BoundingBoxf3 Model::bounding_box() const
 {
     BoundingBoxf3 bb;
     for (ModelObject *o : this->objects)
         bb.merge(o->bounding_box());
+    return bb;
+}
+
+BoundingBoxf3 Model::transformed_bounding_box() const
+{
+    BoundingBoxf3 bb;
+    for (const ModelObject* obj : this->objects)
+        bb.merge(obj->tight_bounding_box(false));
     return bb;
 }
 
@@ -397,16 +407,96 @@ void Model::convert_multipart_object()
     
     ModelObject* object = new ModelObject(this);
     object->input_file = this->objects.front()->input_file;
-    
+
+    reset_auto_extruder_id();
+
     for (const ModelObject* o : this->objects)
         for (const ModelVolume* v : o->volumes)
-            object->add_volume(*v)->name = o->name;
+        {
+            ModelVolume* new_v = object->add_volume(*v);
+            if (new_v != nullptr)
+            {
+                new_v->name = o->name;
+                new_v->config.set_deserialize("extruder", get_auto_extruder_id_as_string());
+            }
+        }
 
     for (const ModelInstance* i : this->objects.front()->instances)
         object->add_instance(*i);
     
     this->clear_objects();
     this->objects.push_back(object);
+}
+
+void Model::adjust_min_z()
+{
+    if (objects.empty())
+        return;
+
+    if (bounding_box().min.z < 0.0)
+    {
+        for (ModelObject* obj : objects)
+        {
+            if (obj != nullptr)
+            {
+                coordf_t obj_min_z = obj->bounding_box().min.z;
+                if (obj_min_z < 0.0)
+                    obj->translate(0.0, 0.0, -obj_min_z);
+            }
+        }
+    }
+}
+
+bool Model::fits_print_volume(const DynamicPrintConfig* config) const
+{
+    if (config == nullptr)
+        return false;
+
+    if (objects.empty())
+        return true;
+
+    const ConfigOptionPoints* opt = dynamic_cast<const ConfigOptionPoints*>(config->option("bed_shape"));
+    if (opt == nullptr)
+        return false;
+
+    BoundingBox bed_box_2D = get_extents(Polygon::new_scale(opt->values));
+    BoundingBoxf3 print_volume(Pointf3(unscale(bed_box_2D.min.x), unscale(bed_box_2D.min.y), 0.0), Pointf3(unscale(bed_box_2D.max.x), unscale(bed_box_2D.max.y), config->opt_float("max_print_height")));
+    // Allow the objects to protrude below the print bed
+    print_volume.min.z = -1e10;
+    return print_volume.contains(transformed_bounding_box());
+}
+
+bool Model::fits_print_volume(const FullPrintConfig &config) const
+{
+    if (objects.empty())
+        return true;
+    BoundingBox bed_box_2D = get_extents(Polygon::new_scale(config.bed_shape.values));
+    BoundingBoxf3 print_volume(Pointf3(unscale(bed_box_2D.min.x), unscale(bed_box_2D.min.y), 0.0), Pointf3(unscale(bed_box_2D.max.x), unscale(bed_box_2D.max.y), config.max_print_height));
+    // Allow the objects to protrude below the print bed
+    print_volume.min.z = -1e10;
+    return print_volume.contains(transformed_bounding_box());
+}
+
+unsigned int Model::get_auto_extruder_id()
+{
+    unsigned int id = s_auto_extruder_id;
+
+    if (++s_auto_extruder_id > 4)
+        reset_auto_extruder_id();
+
+    return id;
+}
+
+std::string Model::get_auto_extruder_id_as_string()
+{
+    char str_extruder[64];
+    sprintf(str_extruder, "%ud", get_auto_extruder_id());
+    return str_extruder;
+}
+
+void Model::reset_auto_extruder_id()
+{
+    s_auto_extruder_id = 1;
 }
 
 ModelObject::ModelObject(Model *model, const ModelObject &other, bool copy_volumes) :  
@@ -539,7 +629,7 @@ void ModelObject::clear_instances()
 
 // Returns the bounding box of the transformed instances.
 // This bounding box is approximate and not snug.
-BoundingBoxf3 ModelObject::bounding_box()
+const BoundingBoxf3& ModelObject::bounding_box()
 {
     if (! m_bounding_box_valid) {
         BoundingBoxf3 raw_bbox;
@@ -553,6 +643,54 @@ BoundingBoxf3 ModelObject::bounding_box()
         m_bounding_box_valid = true;
     }
     return m_bounding_box;
+}
+
+BoundingBoxf3 ModelObject::tight_bounding_box(bool include_modifiers) const
+{
+    BoundingBoxf3 bb;
+
+    for (const ModelVolume* vol : this->volumes)
+    {
+        if (include_modifiers || !vol->modifier)
+        {
+            for (const ModelInstance* inst : this->instances)
+            {
+                double c = cos(inst->rotation);
+                double s = sin(inst->rotation);
+
+                for (int f = 0; f < vol->mesh.stl.stats.number_of_facets; ++f)
+                {
+                    const stl_facet& facet = vol->mesh.stl.facet_start[f];
+
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        // original point
+                        const stl_vertex& v = facet.vertex[i];
+                        Pointf3 p((double)v.x, (double)v.y, (double)v.z);
+
+                        // scale
+                        p.x *= inst->scaling_factor;
+                        p.y *= inst->scaling_factor;
+                        p.z *= inst->scaling_factor;
+
+                        // rotate Z
+                        double x = p.x;
+                        double y = p.y;
+                        p.x = c * x - s * y;
+                        p.y = s * x + c * y;
+
+                        // translate
+                        p.x += inst->offset.x;
+                        p.y += inst->offset.y;
+
+                        bb.merge(p);
+                    }
+                }
+            }
+        }
+    }
+
+    return bb;
 }
 
 // A mesh containing all transformed instances of this object.
@@ -671,7 +809,7 @@ void ModelObject::transform(const float* matrix3x4)
         v->mesh.transform(matrix3x4);
     }
 
-    origin_translation = Pointf3(0.0f, 0.0f, 0.0f);
+    origin_translation = Pointf3(0.0, 0.0, 0.0);
     invalidate_bounding_box();
 }
 
@@ -725,33 +863,8 @@ void ModelObject::cut(coordf_t z, Model* model) const
             lower->add_volume(*volume);
         } else {
             TriangleMesh upper_mesh, lower_mesh;
-            // TODO: shouldn't we use object bounding box instead of per-volume bb?
-            coordf_t cut_z = z + volume->mesh.bounding_box().min.z;
-            if (false) {
-//            if (volume->mesh.has_multiple_patches()) {
-                // Cutting algorithm does not work on intersecting meshes.
-                // As we are not sure whether the meshes don't intersect,
-                // we rather split the mesh into multiple non-intersecting pieces.
-                TriangleMeshPtrs meshptrs = volume->mesh.split();
-                for (TriangleMeshPtrs::iterator mesh = meshptrs.begin(); mesh != meshptrs.end(); ++mesh) {
-                    printf("Cutting mesh patch %d of %d\n", int(mesh - meshptrs.begin()), int(meshptrs.size()));
-                    (*mesh)->repair();
-                    TriangleMeshSlicer tms(*mesh);
-                    if (mesh == meshptrs.begin()) {
-                        tms.cut(cut_z, &upper_mesh, &lower_mesh);
-                    } else {
-                        TriangleMesh upper_mesh_this, lower_mesh_this;
-                        tms.cut(cut_z, &upper_mesh_this, &lower_mesh_this);
-                        upper_mesh.merge(upper_mesh_this);
-                        lower_mesh.merge(lower_mesh_this);
-                    }
-                    delete *mesh;
-                }
-            } else {
-                printf("Cutting mesh patch\n");
-                TriangleMeshSlicer tms(&volume->mesh);
-                tms.cut(cut_z, &upper_mesh, &lower_mesh);
-            }
+            TriangleMeshSlicer tms(&volume->mesh);
+            tms.cut(z, &upper_mesh, &lower_mesh);
 
             upper_mesh.repair();
             lower_mesh.repair();
@@ -890,6 +1003,9 @@ size_t ModelVolume::split()
     size_t idx = 0;
     size_t ivolume = std::find(this->object->volumes.begin(), this->object->volumes.end(), this) - this->object->volumes.begin();
     std::string name = this->name;
+
+    Model::reset_auto_extruder_id();
+
     for (TriangleMesh *mesh : meshptrs) {
         mesh->repair();
         if (idx == 0)
@@ -899,6 +1015,7 @@ size_t ModelVolume::split()
         char str_idx[64];
         sprintf(str_idx, "_%d", idx + 1);
         this->object->volumes[ivolume]->name = name + str_idx;
+        this->object->volumes[ivolume]->config.set_deserialize("extruder", Model::get_auto_extruder_id_as_string());
         delete mesh;
         ++ idx;
     }
